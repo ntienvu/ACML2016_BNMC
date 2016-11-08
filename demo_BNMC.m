@@ -4,11 +4,10 @@ close all;
 addpath(genpath(pwd))
 
 %% loading data
-
 fprintf('Loading Scene Data\n');
-[yyTrain, xxTrain]=read_sparse_ml('data\scene_train');
-[yyTest, xxTest]=read_sparse_ml('data\scene_test');
-
+% [yyTrain, xxTrain]=read_sparse_ml('data\scene_train');
+% [yyTest, xxTest]=read_sparse_ml('data\scene_test');
+load('SceneData.mat');
 if isempty(xxTrain) || isempty(xxTest)
     return;
 end
@@ -34,6 +33,7 @@ ylabel('Data Points','fontsize',14);
 xlabel('Classes','fontsize',14);
 title('Ground Truth Label','fontsize',14);
 
+close all;
 %%
 start=tic;
 %options=11; % Batch Setting, SVM
@@ -41,7 +41,10 @@ options=12; % Batch Setting, LR
 %options=21; % Online Setting, SVM
 %options=22; % Online Setting, LR
 
-[pred_yyTest] = BayNonMultilabelClass( xxTrain,yyTrain,xxTest, options );
+
+IsPlot=1; % IsPlot=0 if you dont want to plot
+
+[pred_yyTest] = BayNonMultilabelClass( xxTrain,yyTrain,xxTest, options, IsPlot );
 mytime=toc(start);
 
 %% Evaluation

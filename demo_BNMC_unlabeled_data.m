@@ -6,8 +6,9 @@ addpath(genpath(pwd))
 %% loading data
 
 fprintf('Loading Scene Data\n');
-[yyTrain, xxTrain]=read_sparse_ml('data\scene_train');
-[yyTest, xxTest]=read_sparse_ml('data\scene_test');
+% [yyTrain, xxTrain]=read_sparse_ml('data\scene_train');
+% [yyTest, xxTest]=read_sparse_ml('data\scene_test');
+load('SceneData.mat');
 
 if isempty(xxTrain) || isempty(xxTest)
     return;

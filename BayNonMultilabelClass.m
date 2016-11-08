@@ -1,4 +1,4 @@
-function [pred_yyTest] = BayNonMultilabelClass( xxTrain,yyTrain,xxTest, options )
+function [pred_yyTest] = BayNonMultilabelClass( xxTrain,yyTrain,xxTest, options, IsPlot )
 %  input ===================================================================
 %   xxTrain: feature of training data [NTrain x DD]
 %   yyTrain: label of trainning data [NTrain x CC]
@@ -17,7 +17,7 @@ eta_xx=0.1;
 eta_yy=0.01;
 learn_rate=0.001; % rho in the paper
 
-KK=20;
+KK=15;
 VX=size(xxTrain,2);
 VY=size(yyTrain,2);
 
@@ -47,6 +47,8 @@ end
 % lambda in SGD
 lambda=64/nTrain;
 
+trun_thesh=0.00001*nTrain;
+
 phi_xx=rand(KK,VX);
 psi_yy=rand(KK,VY);
 
@@ -57,9 +59,57 @@ pi_2=alpha*ones(1,KK);
 eta_classifier=zeros(VY,VX);
 ww_array=cell(1,nTrain);
 
+figFeature=figure('Position', [200, 500, 500, 400]);
+figLabel=figure('Position', [720, 500, 500, 400]);
+
+h = waitbar(0,'Please wait...','Position', [320, 300, 280, 50]);
+
+startTime=tic;
+
+count_character=0;
 for nn=1:nTrain
-    if mod(nn,5000)==0
-        fprintf('%d ',nn);
+    if mod(nn,10)==0
+        fprintf(1, repmat('\b',1,count_character)); %delete line before
+        count_character=fprintf('#Data passed = %d',nn);
+        
+        currentTime=toc(startTime);
+        
+        if IsPlot==1
+            % normalize phi and psi
+            phi_xx2=bsxfun(@rdivide,phi_xx,sum(phi_xx,2));
+            psi_yy2=bsxfun(@rdivide,psi_yy,sum(psi_yy,2));
+            zz2(nn,:)=zz;
+            % truncation step in SVI to remove the empty topic
+            temp_sum=sum(zz2);
+            idx=find(temp_sum<trun_thesh);
+            phi_xx2(idx,:)=[];
+            psi_yy2(idx,:)=[];
+
+            
+            %% plot phi and psi
+            set(0, 'currentfigure', figFeature);
+            clf(figFeature);
+            imagesc(phi_xx2);
+            set(gca,'fontsize',12);
+            ylabel('Correlations','fontsize',14);
+            xlabel('Features','fontsize',14);
+            title('\phi_k','Interpreter','Tex');
+            colorbar;
+            
+            set(0, 'currentfigure', figLabel);
+            clf(figLabel);
+            imagesc(psi_yy2);
+            set(gca,'fontsize',12);
+            xlabel('Classes','fontsize',14);
+            ylabel('Correlations','fontsize',14);
+            title('\psi_k','Interpreter','Tex');
+            colorbar;
+            
+            strPrint=sprintf('#data passed = %d       \t\t\t       Time = %.2f (sec)',nn,currentTime);
+            h = waitbar(nn/nTrain,h,strPrint);
+            
+            pause(0.1);
+        end
     end
     
     Sigma_V=Expect_Log_Sticks(pi_1,pi_2);
@@ -134,9 +184,10 @@ for nn=1:nTrain
     end
     
 end
+
 % truncation step in SVI to remove the empty topic
 temp_sum=sum(global_zz);
-idx=find(temp_sum<0.00001*nTrain);
+idx=find(temp_sum<trun_thesh);
 phi_xx(idx,:)=[];
 psi_yy(idx,:)=[];
 
@@ -149,26 +200,27 @@ psi_yy=bsxfun(@rdivide,psi_yy,sum(psi_yy,2));
 fprintf('KK=%d\n',KK);
 
 %% plot phi and psi
-figure;
+set(0, 'currentfigure', figFeature);
 imagesc(phi_xx);
 set(gca,'fontsize',12);
 ylabel('Correlations','fontsize',14);
 xlabel('Features','fontsize',14);
 %set(gca,'YTick',[1 2 3 4 5])
 %set(gca,'YTickLabel',[1 2 3 4 5]);
-title('\psi_k','Interpreter','Tex');
+title('\phi_k','Interpreter','Tex');
 
-figure;
+set(0, 'currentfigure', figLabel);
 imagesc(psi_yy);
 set(gca,'fontsize',12);
 xlabel('Classes','fontsize',14);
 ylabel('Correlations','fontsize',14);
 %set(gca,'YTick',[1 2 3 4 5])
 %set(gca,'YTickLabel',[1 2 3 4 5]);
-title('\phi_k','Interpreter','Tex');
+title('\psi_k','Interpreter','Tex');
+
+%close(h)
 
 %% estimating eta
-
 
 switch options
     case 11
