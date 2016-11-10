@@ -59,132 +59,138 @@ pi_2=alpha*ones(1,KK);
 eta_classifier=zeros(VY,VX);
 ww_array=cell(1,nTrain);
 
-figFeature=figure('Position', [200, 500, 500, 400]);
-figLabel=figure('Position', [720, 500, 500, 400]);
 
-h = waitbar(0,'Please wait...','Position', [320, 300, 280, 50]);
+
+if IsPlot==1
+    figFeature=figure('Position', [200, 500, 500, 400]);
+    figLabel=figure('Position', [720, 500, 500, 400]);
+    h = waitbar(0,'Please wait...','Position', [320, 300, 280, 50]);
+end
+
 
 startTime=tic;
 
 count_character=0;
-for nn=1:nTrain
-    if mod(nn,10)==0
-        fprintf(1, repmat('\b',1,count_character)); %delete line before
-        count_character=fprintf('#Data passed = %d',nn);
-        
-        currentTime=toc(startTime);
-        
-        if IsPlot==1
-            % normalize phi and psi
-            phi_xx2=bsxfun(@rdivide,phi_xx,sum(phi_xx,2));
-            psi_yy2=bsxfun(@rdivide,psi_yy,sum(psi_yy,2));
-            zz2(nn,:)=zz;
-            % truncation step in SVI to remove the empty topic
-            temp_sum=sum(zz2);
-            idx=find(temp_sum<trun_thesh);
-            phi_xx2(idx,:)=[];
-            psi_yy2(idx,:)=[];
 
+for tt=1:2 % repeat twice for robustness
+    for nn=1:nTrain
+        if mod(nn,10)==0
+            fprintf(1, repmat('\b',1,count_character)); %delete line before
+            count_character=fprintf('#Data passed = %d',nn);
             
-            %% plot phi and psi
-            set(0, 'currentfigure', figFeature);
-            clf(figFeature);
-            imagesc(phi_xx2);
-            set(gca,'fontsize',12);
-            ylabel('Correlations','fontsize',14);
-            xlabel('Features','fontsize',14);
-            title('\phi_k','Interpreter','Tex');
-            colorbar;
+            currentTime=toc(startTime);
             
-            set(0, 'currentfigure', figLabel);
-            clf(figLabel);
-            imagesc(psi_yy2);
-            set(gca,'fontsize',12);
-            xlabel('Classes','fontsize',14);
-            ylabel('Correlations','fontsize',14);
-            title('\psi_k','Interpreter','Tex');
-            colorbar;
-            
-            strPrint=sprintf('#data passed = %d       \t\t\t       Time = %.2f (sec)',nn,currentTime);
-            h = waitbar(nn/nTrain,h,strPrint);
-            
-            pause(0.1);
+            if IsPlot==1
+                % normalize phi and psi
+                phi_xx2=bsxfun(@rdivide,phi_xx,sum(phi_xx,2));
+                psi_yy2=bsxfun(@rdivide,psi_yy,sum(psi_yy,2));
+                zz2(nn,:)=zz;
+                % truncation step in SVI to remove the empty topic
+                temp_sum=sum(zz2);
+                idx=find(temp_sum<trun_thesh);
+                phi_xx2(idx,:)=[];
+                psi_yy2(idx,:)=[];
+                
+                
+                %% plot phi and psi
+                set(0, 'currentfigure', figFeature);
+                clf(figFeature);
+                imagesc(phi_xx2);
+                set(gca,'fontsize',12);
+                ylabel('Correlations','fontsize',14);
+                xlabel('Features','fontsize',14);
+                title('\phi_k','Interpreter','Tex');
+                colorbar;
+                
+                set(0, 'currentfigure', figLabel);
+                clf(figLabel);
+                imagesc(psi_yy2);
+                set(gca,'fontsize',12);
+                xlabel('Classes','fontsize',14);
+                ylabel('Correlations','fontsize',14);
+                title('\psi_k','Interpreter','Tex');
+                colorbar;
+                
+                strPrint=sprintf('#data passed = %d       \t\t\t       Time = %.2f (sec)',nn,currentTime);
+                h = waitbar(nn/nTrain,h,strPrint);
+                
+                pause(0.1);
+            end
         end
+        
+        Sigma_V=Expect_Log_Sticks(pi_1,pi_2);
+        
+        exp_log_phi=Dirichlet_Expectation(phi_xx);
+        exp_log_psi=Dirichlet_Expectation(psi_yy);
+        
+        % estimate zz  - step 2 in Algorithm 2.
+        zz=Sigma_V(1:KK)'+exp_log_psi*full(llTrain{nn})'./sum(llTrain{nn})+...
+            exp_log_phi*full(wwTrain{nn})'./sum(wwTrain{nn});
+        
+        zz=exp(zz-max(zz));
+        zz=zz./sum(zz);
+        
+        global_zz(nn,:)=zz;
+        
+        nat_grad_phi_xx=zz*full(wwTrain{nn});
+        nat_grad_psi_yy=zz*full(llTrain{nn});
+        
+        nat_grad_pi_1=1+nTrain*zz;
+        
+        temp=cumsum(zz);
+        nat_grad_pi_2=alpha+2*nTrain*(1-temp);
+        
+        if nn==1
+            init_learn_rate=0.99;
+            % step 3 in Algorithm 2.
+            phi_xx=(1-init_learn_rate)*phi_xx+init_learn_rate*(eta_xx+nTrain*nat_grad_phi_xx);
+            % step 4 in Algorithm 2.
+            psi_yy=(1-init_learn_rate)*psi_yy+init_learn_rate*(eta_yy+nTrain*nat_grad_psi_yy);
+            % step 5 in Algorithm 2.
+            pi_1=(1-init_learn_rate)*pi_1+init_learn_rate*nat_grad_pi_1';
+            pi_2=(1-init_learn_rate)*pi_2+init_learn_rate*nat_grad_pi_2';
+        else
+            % step 3 in Algorithm 2.
+            phi_xx=(1-learn_rate)*phi_xx+learn_rate*(eta_xx+2*nTrain*nat_grad_phi_xx);
+            % step 4 in Algorithm 2.
+            psi_yy=(1-learn_rate)*psi_yy+learn_rate*(eta_yy+2*nTrain*nat_grad_psi_yy);
+            % step 5 in Algorithm 2.
+            pi_1=(1-learn_rate)*pi_1+learn_rate*nat_grad_pi_1';
+            pi_2=(1-learn_rate)*pi_2+learn_rate*nat_grad_pi_2';
+        end
+        
+        % step 6 in Algorithm 2.
+        switch options
+            case 21
+                xt = xxTrain_sgd(nn,:)';
+                yt = yyTrain_sgd(nn,:);
+                IsSatisfied=ones(1,VY);
+                temp=full(yt.*(eta_classifier*xt)');% hingle loss
+                IsSatisfied(temp>=1)=0;
+                mygrad=-xt*yt;
+                eta=1/(lambda*nn);% learning rate
+                mygrad=mygrad';
+                eta_classifier(IsSatisfied==1,:)=eta_classifier(IsSatisfied==1,:)-eta*mygrad(IsSatisfied==1,:);
+                ww_array{nn}=eta_classifier;
+                
+            case 22
+                xt = xxTrain_sgd(nn,:)';
+                yt = yyTrain_sgd(nn,:);
+                
+                temp=full(-yt.*(eta_classifier*xt)');% logistic loss
+                
+                temp(temp>100)=100;% smoothing
+                mygrad=-xt*(yt.*exp(temp)./(exp(temp)+1));
+                
+                eta=1/(lambda*nn);% learning rate
+                mygrad=mygrad';
+                
+                eta_classifier=((nn-1)/nn)*eta_classifier-eta*mygrad;
+                ww_array{nn}=eta_classifier;
+        end
+        
     end
-    
-    Sigma_V=Expect_Log_Sticks(pi_1,pi_2);
-    
-    exp_log_phi=Dirichlet_Expectation(phi_xx);
-    exp_log_psi=Dirichlet_Expectation(psi_yy);
-    
-    % estimate zz  - step 2 in Algorithm 2.
-    zz=Sigma_V(1:KK)'+exp_log_psi*full(llTrain{nn})'./sum(llTrain{nn})+...
-        exp_log_phi*full(wwTrain{nn})'./sum(wwTrain{nn});
-    
-    zz=exp(zz-max(zz));
-    zz=zz./sum(zz);
-    
-    global_zz(nn,:)=zz;
-    
-    nat_grad_phi_xx=zz*full(wwTrain{nn});
-    nat_grad_psi_yy=zz*full(llTrain{nn});
-    
-    nat_grad_pi_1=1+nTrain*zz;
-    
-    temp=cumsum(zz);
-    nat_grad_pi_2=alpha+2*nTrain*(1-temp);
-    
-    if nn==1
-        init_learn_rate=0.99;
-        % step 3 in Algorithm 2.
-        phi_xx=(1-init_learn_rate)*phi_xx+init_learn_rate*(eta_xx+nTrain*nat_grad_phi_xx);
-        % step 4 in Algorithm 2.
-        psi_yy=(1-init_learn_rate)*psi_yy+init_learn_rate*(eta_yy+nTrain*nat_grad_psi_yy);
-        % step 5 in Algorithm 2.
-        pi_1=(1-init_learn_rate)*pi_1+init_learn_rate*nat_grad_pi_1';
-        pi_2=(1-init_learn_rate)*pi_2+init_learn_rate*nat_grad_pi_2';
-    else
-        % step 3 in Algorithm 2.
-        phi_xx=(1-learn_rate)*phi_xx+learn_rate*(eta_xx+2*nTrain*nat_grad_phi_xx);
-        % step 4 in Algorithm 2.
-        psi_yy=(1-learn_rate)*psi_yy+learn_rate*(eta_yy+2*nTrain*nat_grad_psi_yy);
-        % step 5 in Algorithm 2.
-        pi_1=(1-learn_rate)*pi_1+learn_rate*nat_grad_pi_1';
-        pi_2=(1-learn_rate)*pi_2+learn_rate*nat_grad_pi_2';
-    end
-    
-    % step 6 in Algorithm 2.
-    switch options
-        case 21
-            xt = xxTrain_sgd(nn,:)';
-            yt = yyTrain_sgd(nn,:);
-            IsSatisfied=ones(1,VY);
-            temp=full(yt.*(eta_classifier*xt)');% hingle loss
-            IsSatisfied(temp>=1)=0;
-            mygrad=-xt*yt;
-            eta=1/(lambda*nn);% learning rate
-            mygrad=mygrad';
-            eta_classifier(IsSatisfied==1,:)=eta_classifier(IsSatisfied==1,:)-eta*mygrad(IsSatisfied==1,:);
-            ww_array{nn}=eta_classifier;
-            
-        case 22
-            xt = xxTrain_sgd(nn,:)';
-            yt = yyTrain_sgd(nn,:);
-            
-            temp=full(-yt.*(eta_classifier*xt)');% logistic loss
-            
-            temp(temp>100)=100;% smoothing
-            mygrad=-xt*(yt.*exp(temp)./(exp(temp)+1));
-            
-            eta=1/(lambda*nn);% learning rate
-            mygrad=mygrad';
-            
-            eta_classifier=((nn-1)/nn)*eta_classifier-eta*mygrad;
-            ww_array{nn}=eta_classifier;
-    end
-    
 end
-
 % truncation step in SVI to remove the empty topic
 temp_sum=sum(global_zz);
 idx=find(temp_sum<trun_thesh);
@@ -197,26 +203,29 @@ KK=KK-length(idx);
 phi_xx=bsxfun(@rdivide,phi_xx,sum(phi_xx,2));
 psi_yy=bsxfun(@rdivide,psi_yy,sum(psi_yy,2));
 
-fprintf('KK=%d\n',KK);
+fprintf('\nKK=%d\n',KK);
 
 %% plot phi and psi
-set(0, 'currentfigure', figFeature);
-imagesc(phi_xx);
-set(gca,'fontsize',12);
-ylabel('Correlations','fontsize',14);
-xlabel('Features','fontsize',14);
-%set(gca,'YTick',[1 2 3 4 5])
-%set(gca,'YTickLabel',[1 2 3 4 5]);
-title('\phi_k','Interpreter','Tex');
+if IsPlot==1
+    set(0, 'currentfigure', figFeature);
+    imagesc(phi_xx);
+    set(gca,'fontsize',12);
+    ylabel('Correlations','fontsize',14);
+    xlabel('Features','fontsize',14);
+    %set(gca,'YTick',[1 2 3 4 5])
+    %set(gca,'YTickLabel',[1 2 3 4 5]);
+    title('\phi_k','Interpreter','Tex');
+    
+    set(0, 'currentfigure', figLabel);
+    imagesc(psi_yy);
+    set(gca,'fontsize',12);
+    xlabel('Classes','fontsize',14);
+    ylabel('Correlations','fontsize',14);
+    %set(gca,'YTick',[1 2 3 4 5])
+    %set(gca,'YTickLabel',[1 2 3 4 5]);
+    title('\psi_k','Interpreter','Tex');
+end
 
-set(0, 'currentfigure', figLabel);
-imagesc(psi_yy);
-set(gca,'fontsize',12);
-xlabel('Classes','fontsize',14);
-ylabel('Correlations','fontsize',14);
-%set(gca,'YTick',[1 2 3 4 5])
-%set(gca,'YTickLabel',[1 2 3 4 5]);
-title('\psi_k','Interpreter','Tex');
 
 %close(h)
 

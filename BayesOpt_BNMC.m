@@ -13,15 +13,15 @@ function utility = BayesOpt_BNMC( parameters,data)
 % 1. eta_xx: Dirichlet symmetric for feature
 % default=0.1, range=[0.001-1]
 % 2. eta_yy: Dirichlet symmetric for labels
-% default=0.1, range=[0.001-1]
+% default=0.01, range=[0.001-1]
 % 3. learing rate: for stochastic variational inference
 % default=0.001, range=[0.0001-0.1]
 % 4. lambda: for SGD (will be later divide for nTrain)
-% default=64, range=[1-500]
+% default=64, range=[1-200]
 % 5. truncation threshold: will be later multiply nTrain
 % default=0.00001, range=[0.000001-0.1]
 % 6. alpha: variable for stick-breaking
-% default=1, range=[0.1-5]
+% default=1, range=[0.1-2]
 
 % =====================================================================
 % data: contains the Scene data
@@ -57,7 +57,7 @@ trun_thesh=parameters(5)*nTrain;
 
 alpha=parameters(6);
 
-options=22;
+options=11;
 
 KK=15;
 VX=size(xxTrain,2);
@@ -94,79 +94,83 @@ pi_2=alpha*ones(1,KK);
 eta_classifier=zeros(VY,VX);
 ww_array=cell(1,nTrain);
 
-for nn=1:nTrain
-    Sigma_V=Expect_Log_Sticks(pi_1,pi_2);
-    
-    exp_log_phi=Dirichlet_Expectation(phi_xx);
-    exp_log_psi=Dirichlet_Expectation(psi_yy);
-    
-    % estimate zz  - step 2 in Algorithm 2.
-    zz=Sigma_V(1:KK)'+exp_log_psi*full(llTrain{nn})'./sum(llTrain{nn})+...
-        exp_log_phi*full(wwTrain{nn})'./sum(wwTrain{nn});
-    
-    zz=exp(zz-max(zz));
-    zz=zz./sum(zz);
-    
-    global_zz(nn,:)=zz;
-    
-    nat_grad_phi_xx=zz*full(wwTrain{nn});
-    nat_grad_psi_yy=zz*full(llTrain{nn});
-    
-    nat_grad_pi_1=1+nTrain*zz;
-    
-    temp=cumsum(zz);
-    nat_grad_pi_2=alpha+2*nTrain*(1-temp);
-    
-    if nn==1
-        init_learn_rate=0.99;
-        % step 3 in Algorithm 2.
-        phi_xx=(1-init_learn_rate)*phi_xx+init_learn_rate*(eta_xx+nTrain*nat_grad_phi_xx);
-        % step 4 in Algorithm 2.
-        psi_yy=(1-init_learn_rate)*psi_yy+init_learn_rate*(eta_yy+nTrain*nat_grad_psi_yy);
-        % step 5 in Algorithm 2.
-        pi_1=(1-init_learn_rate)*pi_1+init_learn_rate*nat_grad_pi_1';
-        pi_2=(1-init_learn_rate)*pi_2+init_learn_rate*nat_grad_pi_2';
-    else
-        % step 3 in Algorithm 2.
-        phi_xx=(1-learn_rate)*phi_xx+learn_rate*(eta_xx+2*nTrain*nat_grad_phi_xx);
-        % step 4 in Algorithm 2.
-        psi_yy=(1-learn_rate)*psi_yy+learn_rate*(eta_yy+2*nTrain*nat_grad_psi_yy);
-        % step 5 in Algorithm 2.
-        pi_1=(1-learn_rate)*pi_1+learn_rate*nat_grad_pi_1';
-        pi_2=(1-learn_rate)*pi_2+learn_rate*nat_grad_pi_2';
+
+for tt=1:2
+    for nn=1:nTrain
+        Sigma_V=Expect_Log_Sticks(pi_1,pi_2);
+        
+        exp_log_phi=Dirichlet_Expectation(phi_xx);
+        exp_log_psi=Dirichlet_Expectation(psi_yy);
+        
+        % estimate zz  - step 2 in Algorithm 2.
+        zz=Sigma_V(1:KK)'+exp_log_psi*full(llTrain{nn})'./sum(llTrain{nn})+...
+            exp_log_phi*full(wwTrain{nn})'./sum(wwTrain{nn});
+        
+        zz=exp(zz-max(zz));
+        zz=zz./sum(zz);
+        
+        global_zz(nn,:)=zz;
+        
+        nat_grad_phi_xx=zz*full(wwTrain{nn});
+        nat_grad_psi_yy=zz*full(llTrain{nn});
+        
+        nat_grad_pi_1=1+nTrain*zz;
+        
+        temp=cumsum(zz);
+        nat_grad_pi_2=alpha+2*nTrain*(1-temp);
+        
+        if nn==1
+            init_learn_rate=0.99;
+            % step 3 in Algorithm 2.
+            phi_xx=(1-init_learn_rate)*phi_xx+init_learn_rate*(eta_xx+nTrain*nat_grad_phi_xx);
+            % step 4 in Algorithm 2.
+            psi_yy=(1-init_learn_rate)*psi_yy+init_learn_rate*(eta_yy+nTrain*nat_grad_psi_yy);
+            % step 5 in Algorithm 2.
+            pi_1=(1-init_learn_rate)*pi_1+init_learn_rate*nat_grad_pi_1';
+            pi_2=(1-init_learn_rate)*pi_2+init_learn_rate*nat_grad_pi_2';
+        else
+            % step 3 in Algorithm 2.
+            phi_xx=(1-learn_rate)*phi_xx+learn_rate*(eta_xx+2*nTrain*nat_grad_phi_xx);
+            % step 4 in Algorithm 2.
+            psi_yy=(1-learn_rate)*psi_yy+learn_rate*(eta_yy+2*nTrain*nat_grad_psi_yy);
+            % step 5 in Algorithm 2.
+            pi_1=(1-learn_rate)*pi_1+learn_rate*nat_grad_pi_1';
+            pi_2=(1-learn_rate)*pi_2+learn_rate*nat_grad_pi_2';
+        end
+        
+        % step 6 in Algorithm 2.
+        switch options
+            case 21
+                xt = xxTrain_sgd(nn,:)';
+                yt = yyTrain_sgd(nn,:);
+                IsSatisfied=ones(1,VY);
+                temp=full(yt.*(eta_classifier*xt)');% hingle loss
+                IsSatisfied(temp>=1)=0;
+                mygrad=-xt*yt;
+                eta=1/(lambda*nn);% learning rate
+                mygrad=mygrad';
+                eta_classifier(IsSatisfied==1,:)=eta_classifier(IsSatisfied==1,:)-eta*mygrad(IsSatisfied==1,:);
+                ww_array{nn}=eta_classifier;
+                
+            case 22
+                xt = xxTrain_sgd(nn,:)';
+                yt = yyTrain_sgd(nn,:);
+                
+                temp=full(-yt.*(eta_classifier*xt)');% logistic loss
+                
+                temp(temp>100)=100;% smoothing
+                mygrad=-xt*(yt.*exp(temp)./(exp(temp)+1));
+                
+                eta=1/(lambda*nn);% learning rate
+                mygrad=mygrad';
+                
+                eta_classifier=((nn-1)/nn)*eta_classifier-eta*mygrad;
+                ww_array{nn}=eta_classifier;
+        end
+        
     end
-    
-    % step 6 in Algorithm 2.
-    switch options
-        case 21
-            xt = xxTrain_sgd(nn,:)';
-            yt = yyTrain_sgd(nn,:);
-            IsSatisfied=ones(1,VY);
-            temp=full(yt.*(eta_classifier*xt)');% hingle loss
-            IsSatisfied(temp>=1)=0;
-            mygrad=-xt*yt;
-            eta=1/(lambda*nn);% learning rate
-            mygrad=mygrad';
-            eta_classifier(IsSatisfied==1,:)=eta_classifier(IsSatisfied==1,:)-eta*mygrad(IsSatisfied==1,:);
-            ww_array{nn}=eta_classifier;
-            
-        case 22
-            xt = xxTrain_sgd(nn,:)';
-            yt = yyTrain_sgd(nn,:);
-            
-            temp=full(-yt.*(eta_classifier*xt)');% logistic loss
-            
-            temp(temp>100)=100;% smoothing
-            mygrad=-xt*(yt.*exp(temp)./(exp(temp)+1));
-            
-            eta=1/(lambda*nn);% learning rate
-            mygrad=mygrad';
-            
-            eta_classifier=((nn-1)/nn)*eta_classifier-eta*mygrad;
-            ww_array{nn}=eta_classifier;
-    end
-    
 end
+
 
 % truncation step in SVI to remove the empty topic
 temp_sum=sum(global_zz);

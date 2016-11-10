@@ -42,7 +42,7 @@ options=12; % Batch Setting, LR
 %options=22; % Online Setting, LR
 
 
-IsPlot=1; % IsPlot=0 if you dont want to plot
+IsPlot=0; % IsPlot=0 if you dont want to plot
 
 [pred_yyTest] = BayNonMultilabelClass( xxTrain,yyTrain,xxTest, options, IsPlot );
 mytime=toc(start);

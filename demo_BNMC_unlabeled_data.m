@@ -6,8 +6,6 @@ addpath(genpath(pwd))
 %% loading data
 
 fprintf('Loading Scene Data\n');
-% [yyTrain, xxTrain]=read_sparse_ml('data\scene_train');
-% [yyTest, xxTest]=read_sparse_ml('data\scene_test');
 load('SceneData.mat');
 
 if isempty(xxTrain) || isempty(xxTest)
@@ -50,7 +48,7 @@ options=12; % Batch Setting, LR
 %options=21; % Online Setting, SVM
 %options=22; % Online Setting, LR
 
-[pred_yyTest] = BayNonMultilabelClass_unlabeled_data( xxTrain,yyTrain,xxTest, options );
+[pred_yyTest] = BayNonMultilabelClass_unlabeled_data( xxTrain,yyTrain,xxTest,options );
 mytime=toc(start);
 
 %% Evaluation

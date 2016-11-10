@@ -4,12 +4,12 @@
 % [yyTest, xxTest]=read_sparse_ml('data\scene_test');
 load('SceneData.mat');
 
-eta_xx=0.3; % Dirichlet symmetric for SVI (feature)
-eta_yy=0.2; % Dirichlet symmetric for SVI (label)
+eta_xx=0.1; % Dirichlet symmetric for SVI (feature)
+eta_yy=0.01; % Dirichlet symmetric for SVI (label)
 learn_rate=0.001; % learning rate for SVI
-lambda=32;% for SGD
+lambda=64;% for SGD
 trun_thesh=0.00001; % truncation threshold
-alpha=0.5; % stick-breaking parameter
+alpha=1; % stick-breaking parameter
 
 parameters=[eta_xx,eta_yy,learn_rate,lambda,trun_thesh,alpha];
 
