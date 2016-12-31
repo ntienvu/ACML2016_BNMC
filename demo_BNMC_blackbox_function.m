@@ -1,4 +1,6 @@
 
+addpath('utilities\');
+
 %fprintf('Loading Scene Data\n');
 % [yyTrain, xxTrain]=read_sparse_ml('data\scene_train');
 % [yyTest, xxTest]=read_sparse_ml('data\scene_test');
