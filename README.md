@@ -10,4 +10,4 @@ video demo is available at: https://www.youtube.com/watch?v=-EE-I2IpQbo
 Dr Vu Nguyen, v.nguyen@deakin.edu.au
 
 ### Citation:
-Nguyen, V., Gupta, S., Rana, S., Li, C., & Venkatesh, S. (2016). A Bayesian Nonparametric Approach for Multi-label Classification. In Proceedings of The 8th Asian Conference on Machine Learning (pp. 254-269).
+  V. Nguyen, S. Gupta, S. Rana, C. Li, & S. Venkatesh (2016). A Bayesian Nonparametric Approach for Multi-label Classification. In Proceedings of The 8th Asian Conference on Machine Learning (pp. 254-269).
